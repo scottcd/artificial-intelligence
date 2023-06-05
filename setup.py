@@ -10,6 +10,8 @@ setup(
     install_requires=[
         'torch>=1.8.0',
         'torchvision>=0.9.0',
+        'gymnasium[all]',
+        'pygame',
         # Add other dependencies if needed
     ],
     classifiers=[
@@ -21,5 +23,6 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.11',
     ],
 )
