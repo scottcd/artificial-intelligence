@@ -34,6 +34,9 @@ class DQNAgent(Agent):
         transitions = self.memory.sample(self.batch_size)
 
         batch = Transition(*zip(*transitions))
+        
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                                 batch.next_state)), device=self.device, dtype=torch.bool)
         
@@ -46,15 +49,17 @@ class DQNAgent(Agent):
         #
         if (isinstance(self.env.action_space, gym.spaces.Discrete)):
             state_action_values = self.policy_network(
-                state_batch).gather(1, action_batch.unsqueeze(1))
+                state_batch).gather(1, action_batch)
 
         else:
             state_action_values = self.policy_network(state_batch)
 
-        #
+        # Compute V(s_{t+1}) for all next states.
+        # Expected values of actions for non_final_next_states are computed based
+        # on the "older" target_net; selecting their best reward with max(1)[0].
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
         next_state_values = torch.zeros(self.batch_size, device=self.device, )
-
-        #
         with torch.no_grad():
             next_state_values[non_final_mask] = self.target_network(
                 non_final_next_states).max(1)[0]
@@ -64,10 +69,11 @@ class DQNAgent(Agent):
 
         # Compute Huber loss
         criterion = nn.SmoothL1Loss()
+        
+        #print(state_action_values.shape)
+        #print(expected_state_action_values.shape)
         loss = criterion(state_action_values,
                          expected_state_action_values.unsqueeze(1))
-        print(state_action_values.shape)
-        print(expected_state_action_values.shape)
 
         # Optimize the model
         self.optimizer.zero_grad()

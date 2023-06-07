@@ -12,7 +12,11 @@ class Agent():
             self.n_actions = env.action_space.n
         else:
             self.n_actions = env.action_space.shape[0]
-        self.n_observations = env.observation_space.shape[0]
+        if (isinstance(env.observation_space, gym.spaces.Discrete)):
+            self.n_observations = env.observation_space.n
+        else:
+            self.n_observations = env.observation_space.shape[0]
+
         self.memory = None
         self.steps_taken = 0
         self.device = torch.device(
@@ -27,7 +31,7 @@ class Agent():
         self.steps_taken += 1
         if sample > eps_threshold:
             with torch.no_grad():
-                state_tensor = torch.tensor(state, device=self.device, dtype=torch.float32)
+                state_tensor = state.clone().detach()
                 if (isinstance(self.env.action_space, gym.spaces.Discrete)):
                     return model(state_tensor).max(1)[1].unsqueeze(0).item()
                 else:

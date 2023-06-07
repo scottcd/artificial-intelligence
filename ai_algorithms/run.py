@@ -24,6 +24,13 @@ if __name__ == '__main__':
     env = gym.make(environment, render_mode="human")
     observation, info = env.reset(seed=42)
     logger.info('Environment set up.')
+    logger.info((
+        f'Environment: {env.unwrapped.spec.id}\n'
+        f'Observation Space: {"discrete" if isinstance(env.observation_space, gym.spaces.Discrete) else "continuous"} '
+        f'{env.observation_space}\n'
+        f'Action Space: {"discrete" if isinstance(env.action_space, gym.spaces.Discrete) else "continuous"} '
+        f'{env.action_space}\n'
+    ))
 
     logger.info(f'Setting up {ml_algorithm.upper()} agent..')
     agent = create_agent(ml_algorithm, env)
@@ -35,12 +42,15 @@ if __name__ == '__main__':
     ##
     for i in range(n_episodes):
         logger.info(f'Training on episode {i}')
+        
         observation, info = env.reset()
-        state = torch.tensor(observation, dtype=torch.float32, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
+        state = torch.tensor(observation, dtype=torch.float32, device=torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
+        total_reward = 0
         while True:
             model = agent.model if type(agent) is A3CAgent or type(agent) is PPOAgent \
                 else agent.policy_network
-            
+
             action = agent.select_action(model, state)
             observation, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
@@ -48,19 +58,23 @@ if __name__ == '__main__':
             if terminated:
                 next_state = None
             else:
-                next_state = torch.tensor(observation, dtype=torch.float32, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
-            
+                next_state = torch.tensor(observation, dtype=torch.float32, device=torch.device(
+                    "cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
+
             # if memory, remember
             if agent.memory is not None:
-                agent.remember(state, next_state, torch.tensor(reward).unsqueeze(0), torch.tensor(action).unsqueeze(0))
+                agent.remember(state, next_state, torch.tensor(reward).unsqueeze(
+                    0), torch.tensor(action).unsqueeze(0).unsqueeze(0))
                 state = next_state
 
             # optimize
             agent.learn()
 
+            total_reward += reward
             if done:
                 # stats for episode
-                logger.info(f'Episode {i} complete with reward {reward}.')
+                logger.info(
+                    f'Episode {i} complete with reward {total_reward}.')
                 break
     env.close()
     ##
