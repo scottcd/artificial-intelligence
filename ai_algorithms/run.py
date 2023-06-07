@@ -1,7 +1,10 @@
 import sys
+import torch
 import gymnasium as gym
 from .util import CustomLogger as log, ArgParser, create_agent
-
+from .a3c import A3CAgent
+from .dqn import DQNAgent
+from .ppo import PPOAgent
 
 
 if __name__ == '__main__':
@@ -23,24 +26,42 @@ if __name__ == '__main__':
     logger.info('Environment set up.')
 
     logger.info(f'Setting up {ml_algorithm.upper()} agent..')
-    agent = create_agent(ml_algorithm)
-    logger.critical(f'{agent.memory}')
+    agent = create_agent(ml_algorithm, env)
     logger.info('Agent set up.')
 
     # train
-    logger.info(f'Training a(n) {ml_algorithm.upper()} agent for {n_episodes} episodes in the {environment} environment.')
+    logger.info(
+        f'Training a(n) {ml_algorithm.upper()} agent for {n_episodes} episodes in the {environment} environment.')
     ##
     for i in range(n_episodes):
         logger.info(f'Training on episode {i}')
-        while True:    
-            action = env.action_space.sample()  # this is where you would insert your policy
+        observation, info = env.reset()
+        state = torch.tensor(observation, dtype=torch.float32, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
+        while True:
+            model = agent.model if type(agent) is A3CAgent or type(agent) is PPOAgent \
+                else agent.policy_network
+            
+            action = agent.select_action(model, state)
             observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
 
-            if terminated or truncated:
+            if terminated:
+                next_state = None
+            else:
+                next_state = torch.tensor(observation, dtype=torch.float32, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")).unsqueeze(0)
+            
+            # if memory, remember
+            if agent.memory is not None:
+                agent.remember(state, next_state, torch.tensor(reward).unsqueeze(0), torch.tensor(action).unsqueeze(0))
+                state = next_state
+
+            # optimize
+            agent.learn()
+
+            if done:
+                # stats for episode
                 logger.info(f'Episode {i} complete with reward {reward}.')
-                observation, info = env.reset()
                 break
     env.close()
     ##
     logger.info(f'Finished training!')
-

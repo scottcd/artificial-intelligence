@@ -48,7 +48,7 @@ class CustomLogger:
         if not os.path.exists('./out'):
             os.makedirs('./out')
 
-    def create_stats_file(self, formatter):
+    def create_stats_file(self):
         with open(self.stats_file, 'w') as f:
             f.write('Header 1, Header 2, Header 3\n')  # Modify the header row as needed
 
